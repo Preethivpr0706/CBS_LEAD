@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Edit2, Trash2, Phone, Mail, MapPin, CreditCard, RefreshCw, Clock, History, Building2, DollarSign } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
@@ -14,10 +14,64 @@ export const ClientDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('details');
-  const { getClientById, deleteClient, addFollowUp, fetchClientFollowUps, addLoan, fetchClientLoans } = useClientsStore();
+  const [loading, setLoading] = useState(true);
+  const { 
+    getClientById, 
+    deleteClient, 
+    addFollowUp, 
+    fetchClientFollowUps, 
+    addLoan, 
+    fetchClientLoans,
+    fetchClients // Add this method to your store if it doesn't exist
+  } = useClientsStore();
    
   const client = getClientById(parseInt(id || '0', 10));
 
+  // Add useEffect to fetch data if client is not found
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        
+        // If client is not found, try fetching all clients first
+        if (!client && id) {
+          await fetchClients(); // This should populate the store
+        }
+        
+        // After fetching, get the client again
+        const foundClient = getClientById(parseInt(id || '0', 10));
+        
+        if (foundClient) {
+          // Fetch related data
+          await Promise.all([
+            fetchClientFollowUps(foundClient.id),
+            fetchClientLoans(foundClient.id)
+          ]);
+        }
+      } catch (error) {
+        console.error('Failed to load client data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [id, client, fetchClients, fetchClientFollowUps, fetchClientLoans, getClientById]);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-96">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Loading client...</h3>
+          <p className="text-gray-500">Please wait while we fetch the client details.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show not found only after loading is complete
   if (!client) {
     return (
       <div className="flex items-center justify-center h-full min-h-96">
@@ -28,18 +82,17 @@ export const ClientDetails: React.FC = () => {
             </svg>
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">Client not found</h3>
-          <p className="text-gray-500">The requested client could not be located.</p>
+          <p className="text-gray-500 mb-4">The requested client could not be located.</p>
+          <Link
+            to="/clients"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+          >
+            Back to Clients
+          </Link>
         </div>
       </div>
     );
   }
-
-  React.useEffect(() => {
-    if (client) {
-      fetchClientFollowUps(client.id);
-      fetchClientLoans(client.id);
-    }
-  }, [client, fetchClientFollowUps, fetchClientLoans]);
 
   const handleDelete = async () => {
     if (window.confirm('Are you sure you want to delete this client?')) {

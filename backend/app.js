@@ -7,6 +7,7 @@ const clientRoutes = require('./routes/clientRoutes');
 const followUpRoutes = require('./routes/followUpRoutes');
 const loanRoutes = require('./routes/loanRoutes');
 const documentRoutes = require('./routes/documentRoutes');
+const reminderService = require('./services/reminderService');
 const app = express();
 
 
@@ -45,6 +46,13 @@ app.use('/api/follow-ups', followUpRoutes);
 app.use('/api/loans', loanRoutes);
 // Add document routes
 app.use('/api/documents', documentRoutes);
+
+// Schedule follow-up reminders (every 30 minutes)
+const REMINDER_INTERVAL = 30 * 60 * 1000; // 30 minutes
+setInterval(reminderService.checkFollowUpReminders, REMINDER_INTERVAL);
+
+// Run once on startup
+reminderService.checkFollowUpReminders();
 
 // Error handling middleware
 app.use((err, req, res, next) => {

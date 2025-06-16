@@ -89,3 +89,7 @@ INSERT INTO folders (name) VALUES
     ('Loan Documents'),
     ('Client References'),
     ('ID Proofs');
+
+
+-- Add reminder_sent column to follow_ups table
+ALTER TABLE cbs_db.follow_ups ADD COLUMN reminder_sent BOOLEAN DEFAULT FALSE;

@@ -1,5 +1,5 @@
-import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ClientForm } from '../components/ClientForm';
 import { useClientsStore } from '../store/clientsStore';
 import { Client } from '../types';
@@ -26,41 +26,70 @@ interface ClientFormData {
 export const EditClient: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { clients, updateClient } = useClientsStore();
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const { clients, updateClient, fetchClients, getClientById } = useClientsStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
   
   // Find client by ID
-  const client = clients.find(c => c.id === parseInt(id || '0', 10));
+  const client = getClientById(parseInt(id || '0', 10));
   
-  // If client not found, show error
-  if (!client) {
+  // Add useEffect to fetch data if client is not found
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        
+        // If client is not found, try fetching all clients first
+        if (!client && id) {
+          await fetchClients();
+        }
+      } catch (error) {
+        console.error('Failed to load client data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [id, client, fetchClients]);
+
+  // Show loading state
+  if (loading) {
     return (
-      <div className="p-4 rounded-md bg-red-50">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-red-800">Client not found</h3>
-            <div className="mt-2 text-sm text-red-700">
-              <p>The client you are trying to edit does not exist.</p>
-            </div>
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={() => navigate('/clients')}
-                className="rounded-md bg-red-50 px-2 py-1.5 text-sm font-medium text-red-800 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 focus:ring-offset-red-50"
-              >
-                Go back to clients
-              </button>
-            </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-4 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Loading client...</h3>
+            <p className="text-gray-500">Please wait while we fetch the client details.</p>
           </div>
         </div>
       </div>
     );
   }
+  // Show not found only after loading is complete
+  if (!client) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-96">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Client not found</h3>
+          <p className="text-gray-500 mb-4">The requested client could not be located.</p>
+          <Link
+            to="/clients"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+          >
+            Back to Clients
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
 
   // Convert client data to form data format
   const initialFormData: ClientFormData = {

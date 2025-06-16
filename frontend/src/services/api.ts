@@ -1,6 +1,6 @@
 // services/api.ts
 import axios from 'axios';
-import {Client, ClientStatus, FollowUp} from '../types/index'
+import {Client, ClientStatus, FollowUp, UserSettings} from '../types/index'
 
 const API_BASE_URL = 'http://localhost:3001/api';
 
@@ -62,6 +62,17 @@ export const documentsApi = {
   createFolder: (name: string) => api.post('/documents/folders', { name }),
   delete: (id: number) => api.delete(`/documents/${id}`),
   download: (id: number) => api.get(`/documents/download/${id}`),
+};
+
+export const settingsApi = {
+  getSettings: () => api.get('/settings'),
+  updateSettings: (data: Partial<UserSettings>) => api.put('/settings', data),
+  uploadProfilePicture: (formData: FormData) =>
+    api.post('/settings/profile-picture', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }),
 };
 
 

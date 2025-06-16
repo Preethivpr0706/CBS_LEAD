@@ -64,3 +64,13 @@ export interface Document {
   upload_date: string;
   created_at?: string;
 }
+
+export interface UserSettings {
+  id: number;
+  name: string;
+  email: string;
+  profile_picture?: string;
+  theme_preference?: 'light' | 'dark' | 'system';
+  notification_frequency?: 'daily' | 'weekly' | 'none';
+  // Add other settings as needed
+}
