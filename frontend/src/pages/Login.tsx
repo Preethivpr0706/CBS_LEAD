@@ -1,8 +1,10 @@
-import { useState } from 'react';
+// pages/Login.tsx
+import { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff } from 'lucide-react';
-import cbsLogo from '../cbs.png'; 
+import cbsLogo from '../cbs.png';
 import { useAuth } from '../hooks/useAuth';
 import { Navigate } from 'react-router-dom';
+import { settingsApi } from '../services/api';
 
 export const Login = () => {
   const { user, login } = useAuth();
@@ -11,24 +13,40 @@ export const Login = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [companyName, setCompanyName] = useState('Chetana Business Solutions');
+  
+  // Fetch company name for branding
+  useEffect(() => {
+    const fetchCompanyName = async () => {
+      try {
+        const response = await settingsApi.getSettings();
+        if (response.data && response.data.company_name) {
+          setCompanyName(response.data.company_name);
+        }
+      } catch (error) {
+        console.error('Failed to fetch company name:', error);
+      }
+    };
     
+    fetchCompanyName();
+  }, []);
+
   // If user is already logged in, redirect to dashboard
   if (user) {
     return <Navigate to="/dashboard" replace />;
   }
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    
+
     try {
-       const success = await login(email, password);
-      
+      const success = await login(email, password);
+
       if (!success) {
         setError('Invalid email or password');
       }
-
     } catch (error) {
       setError('An error occurred during login');
       console.error(error);
@@ -36,7 +54,7 @@ export const Login = () => {
       setIsLoading(false);
     }
   };
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Background decorative elements */}
@@ -45,26 +63,26 @@ export const Login = () => {
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-xl opacity-10 animate-pulse"></div>
       </div>
-      
+
       <div className="relative z-10 sm:mx-auto sm:w-full sm:max-w-md">
         {/* Logo Section */}
         <div className="flex justify-center mb-8">
           <div className="relative">
             {/* CBS Logo */}
             <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center shadow-2xl transform hover:scale-105 transition-transform duration-300 p-3">
-              <img 
+              <img
                 src={cbsLogo}
-                alt="Chetana Business Solutions" 
+                alt={companyName}
                 className="w-full h-full object-contain"
               />
             </div>
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-400 to-green-400 rounded-2xl blur opacity-30"></div>
           </div>
         </div>
-        
+
         <div className="text-center">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent mb-2">
-            Chetana Business Solutions
+            {companyName}
           </h1>
           <p className="text-blue-200 text-lg font-medium">
             Lead Management Dashboard
@@ -72,12 +90,12 @@ export const Login = () => {
           <div className="w-24 h-1 bg-gradient-to-r from-blue-400 to-indigo-400 mx-auto mt-4 rounded-full"></div>
         </div>
       </div>
-      
+
       <div className="mt-12 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="bg-white/10 backdrop-blur-xl py-10 px-8 shadow-2xl sm:rounded-3xl border border-white/20 relative overflow-hidden">
           {/* Card background effect */}
           <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent rounded-3xl"></div>
-          
+
           <div className="relative z-10">
             <div className="space-y-6">
               {error && (
@@ -89,7 +107,7 @@ export const Login = () => {
                   </div>
                 </div>
               )}
-              
+
               <div className="space-y-5">
                 <div>
                   <label className="block text-sm font-semibold text-white mb-2">
@@ -107,7 +125,7 @@ export const Login = () => {
                     <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-400/20 to-indigo-400/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-semibold text-white mb-2">
                     Password
@@ -135,7 +153,7 @@ export const Login = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="pt-4">
                 <button
                   onClick={handleSubmit}
@@ -143,7 +161,7 @@ export const Login = () => {
                   className="group relative w-full flex justify-center py-4 px-6 border border-transparent rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] transition-all duration-300 shadow-xl hover:shadow-2xl"
                 >
                   <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-400 to-indigo-400 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></span>
-                  
+
                   {isLoading ? (
                     <span className="flex items-center">
                       <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -160,31 +178,15 @@ export const Login = () => {
                   )}
                 </button>
               </div>
-              
-              <div className="mt-8 p-6 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10">
-                <div className="text-center">
-                  <p className="text-white/80 text-sm font-medium mb-2">
-                    Demo Credentials
-                  </p>
-                  <div className="space-y-1">
-                    <p className="text-blue-200 text-sm">
-                      <span className="font-semibold">Email:</span> admin@chetana.com
-                    </p>
-                    <p className="text-blue-200 text-sm">
-                      <span className="font-semibold">Password:</span> password
-                    </p>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
       </div>
-      
+
       {/* Footer */}
       <div className="mt-8 text-center relative z-10">
         <p className="text-white/60 text-sm">
-          © 2025 Chetana Business Solutions. All rights reserved.
+          © {new Date().getFullYear()} {companyName}. All rights reserved.
         </p>
       </div>
     </div>

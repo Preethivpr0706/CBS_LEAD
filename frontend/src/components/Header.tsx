@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { Bell, MenuIcon, PlusCircle } from 'lucide-react';
 import { NotificationsPanel } from './NotificationsPanel';
 import { useClientsStore } from '../store/clientsStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { FollowUp } from '../types';
+import cbsLogo from '../cbs.png';
 
 interface HeaderProps {
   setSidebarOpen: (open: boolean) => void;
@@ -14,17 +16,54 @@ export const Header: React.FC<HeaderProps> = ({ setSidebarOpen }) => {
   const navigate = useNavigate();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const { clients, followUps } = useClientsStore();
+  const { settings, fetchSettings } = useSettingsStore();
+  const [logoUrl, setLogoUrl] = useState<string>(cbsLogo);
   
-  // Get notifications count
+  // Function to get the correct logo URL
+  const getLogoUrl = (logoPath: string | undefined | null): string => {
+    if (!logoPath) return cbsLogo;
+    
+    // If it's already a full URL, return it
+    if (logoPath.startsWith('http')) return logoPath;
+    
+    // Remove any leading "/api" if present
+    const cleanPath = logoPath.startsWith('/api') 
+      ? logoPath.substring(4) 
+      : logoPath;
+    
+    // Construct the full URL
+   const apiBaseUrl = import.meta.env.BACKEND_URL || 'http://localhost:3001';
+    return `${apiBaseUrl}${cleanPath}`;
+  };
+  
+  // Fetch settings on component mount to get the logo
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+  
+  // Update logo URL when settings change
+  useEffect(() => {
+    if (settings?.logo_url) {
+      const url = getLogoUrl(settings.logo_url);
+      console.log('Setting header logo URL:', url);
+      setLogoUrl(url);
+    }
+  }, [settings]);
+  
+
+  // Get notifications count only if enabled
+ const notificationsEnabled = settings?.notifications_enabled ?? true; // Default to true if undefined
+
+// Only calculate notifications if enabled
+let notificationsCount = 0;
+if (notificationsEnabled) {
   const today = new Date().toISOString().split('T')[0];
   const followUpsDueToday = clients.filter(client => 
     client.next_follow_up === today
   );
   
-  // Convert followUps object to array
   const followUpsArray = Object.values(followUps).flat();
   
-  // Get inactive clients (no follow-ups in last 30 days)
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   
@@ -39,8 +78,9 @@ export const Header: React.FC<HeaderProps> = ({ setSidebarOpen }) => {
     return !lastFollowUp || new Date(lastFollowUp.date) < thirtyDaysAgo;
   });
   
-  const notificationsCount = followUpsDueToday.length + inactiveClients.length;
-  
+  notificationsCount = followUpsDueToday.length + inactiveClients.length;
+}
+
   // Get page subtitle (for context)
   const getPageSubtitle = () => {
     const path = location.pathname;
@@ -73,8 +113,17 @@ export const Header: React.FC<HeaderProps> = ({ setSidebarOpen }) => {
       <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
         <div className="flex items-center">
           <Link to="/dashboard" className="flex items-center">
+            <img 
+              src={logoUrl} 
+              alt={settings?.company_name || "Company Logo"} 
+              className="h-8 w-8 object-contain mr-3"
+              onError={(e) => {
+                console.error("Logo failed to load:", logoUrl);
+                (e.target as HTMLImageElement).src = cbsLogo;
+              }}
+            />
             <h1 className="text-2xl font-extrabold text-gray-900 hover:text-blue-600 transition-colors duration-200">
-              Chetana Business Solutions
+              {settings?.company_name || "Chetana Business Solutions"}
             </h1>
           </Link>
           {getPageSubtitle() && (
@@ -95,27 +144,27 @@ export const Header: React.FC<HeaderProps> = ({ setSidebarOpen }) => {
                 Add Client
               </button>
             )}
-            
-            <div className="relative">
-              <button
-                type="button"
-                className="relative -m-2.5 p-2.5 text-gray-500 hover:text-gray-700"
-                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                aria-label="View notifications"
-              >
-                <Bell className="h-6 w-6" aria-hidden="true" />
-                {notificationsCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-medium text-white">
-                    {notificationsCount}
-                  </span>
-                )}
-              </button>
-              
-              <NotificationsPanel 
-                isOpen={isNotificationsOpen} 
-                onClose={() => setIsNotificationsOpen(false)} 
-              />
-            </div>
+ 
+<div className="relative">
+  <button
+    type="button"
+    className="relative -m-2.5 p-2.5 text-gray-500 hover:text-gray-700"
+    onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+    aria-label={notificationsEnabled ? "View notifications" : "Notifications are disabled"}
+  >
+    <Bell className="h-6 w-6" aria-hidden="true" />
+    {notificationsEnabled && notificationsCount > 0 && (
+      <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-medium text-white">
+        {notificationsCount}
+      </span>
+    )}
+  </button>
+  
+  <NotificationsPanel 
+    isOpen={isNotificationsOpen} 
+    onClose={() => setIsNotificationsOpen(false)} 
+  />
+</div>
           </div>
         </div>
       </div>

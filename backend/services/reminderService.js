@@ -2,19 +2,6 @@
 const nodemailer = require('nodemailer');
 const pool = require('../config/database');
 
-// Configure Nodemailer
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    auth: {
-        user: 'preethivijay0706@gmail.com',
-        pass: 'otvl xydr tqlm tkfd'
-    }
-});
-
-const MANAGEMENT_EMAIL = 'harishradhakrishnan2001@gmail.com';
-
 // Since your dates are already stored correctly with IST timezone adjustment,
 // we need to work with the same timezone for comparison
 const getCurrentMySQLDateTime = () => {
@@ -32,11 +19,57 @@ const addHoursToCurrentTime = (hours) => {
     return futureTime.toISOString().slice(0, 19).replace('T', ' ');
 };
 
-const sendFollowUpReminder = async(followUp, client) => {
+// Get settings from database
+const getSettings = async() => {
+    try {
+        const [settings] = await pool.query('SELECT * FROM company_settings WHERE id = 1');
+        return settings[0] || {
+            company_name: 'Chetana Business Solutions',
+            notification_email: 'harishradhakrishnan2001@gmail.com',
+            reminder_time_before: 2,
+            notifications_enabled: true
+        };
+    } catch (error) {
+        console.error('Error fetching settings:', error);
+        // Return default settings if there's an error
+        return {
+            company_name: 'Chetana Business Solutions',
+            notification_email: 'harishradhakrishnan2001@gmail.com',
+            reminder_time_before: 2,
+            notifications_enabled: true
+        };
+    }
+};
+
+// Configure Nodemailer with settings from environment variables or use defaults
+const createTransporter = async() => {
+    // You could store these in environment variables for better security
+    const emailUser = process.env.EMAIL_USER || 'preethivijay0706@gmail.com';
+    const emailPass = process.env.EMAIL_PASS || 'otvl xydr tqlm tkfd';
+
+    return nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        auth: {
+            user: emailUser,
+            pass: emailPass
+        }
+    });
+};
+
+const sendFollowUpReminder = async(followUp, client, settings) => {
     try {
         console.log('Sending reminder for:', followUp);
         console.log('Client details:', client);
 
+        // Create transporter
+        const transporter = await createTransporter();
+
+        // Get notification email from settings
+        const notificationEmail = settings.notification_email;
+
+        // Format dates for better readability
         const followUpDate = new Date(followUp.date).toLocaleString('en-IN', {
             year: 'numeric',
             month: 'long',
@@ -54,15 +87,15 @@ const sendFollowUpReminder = async(followUp, client) => {
         });
 
         const mailOptions = {
-            from: 'preethivijay0706@gmail.com',
-            to: MANAGEMENT_EMAIL,
+            from: process.env.EMAIL_USER || 'preethivijay0706@gmail.com',
+            to: notificationEmail,
             subject: `Follow-up Reminder: ${client.customer_name} - ${client.business_name}`,
             html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
                 <h2 style="color: #3b82f6; margin-top: 0;">Follow-up Reminder</h2>
                 
                 <div style="background-color: #f0f9ff; border-left: 4px solid #3b82f6; padding: 15px; margin-bottom: 20px;">
-                    <p style="margin: 0; font-weight: bold;">A follow-up is due in 2 hours!</p>
+                    <p style="margin: 0; font-weight: bold;">A follow-up is due in ${settings.reminder_time_before} hours!</p>
                 </div>
                 
                 <h3 style="margin-bottom: 10px;">Client Details:</h3>
@@ -119,14 +152,14 @@ const sendFollowUpReminder = async(followUp, client) => {
                 </div>
                 
                 <p style="color: #6b7280; font-size: 12px; margin-top: 20px; text-align: center;">
-                    This is an automated reminder from Chetana Business Solutions.
+                    This is an automated reminder from ${settings.company_name}.
                 </p>
             </div>
             `
         };
 
         await transporter.sendMail(mailOptions);
-        console.log(`Reminder email sent to management for client: ${client.customer_name}`);
+        console.log(`Reminder email sent to ${notificationEmail} for client: ${client.customer_name}`);
         return true;
     } catch (error) {
         console.error('Error sending reminder email:', error);
@@ -136,14 +169,20 @@ const sendFollowUpReminder = async(followUp, client) => {
 
 const checkFollowUpReminders = async() => {
     try {
-        const currentTime = getCurrentMySQLDateTime();
-        const twoHoursLater = addHoursToCurrentTime(2);
+        // Get settings from database
+        const settings = await getSettings();
 
-        console.log('Current Time (matching DB timezone):', currentTime);
-        console.log('Two hours later:', twoHoursLater);
+
+
+        const currentTime = getCurrentMySQLDateTime();
+        const reminderHours = settings.reminder_time_before || 2; // Default to 2 hours if not set
+        const futureTime = addHoursToCurrentTime(reminderHours);
+
+        console.log(`Current Time (matching DB timezone): ${currentTime}`);
+        console.log(`Looking ahead ${reminderHours} hours to: ${futureTime}`);
 
         // Updated query to find follow-ups that are:
-        // 1. Scheduled between now and 2 hours from now
+        // 1. Scheduled between now and X hours from now (based on settings)
         // 2. Haven't had reminder sent yet
         const [followUps] = await pool.query(
             `SELECT f.*, 
@@ -152,10 +191,10 @@ const checkFollowUpReminders = async() => {
              INNER JOIN clients c ON f.client_id = c.id
              WHERE f.next_follow_up_date > ? 
                AND f.next_follow_up_date <= ?
-               AND f.reminder_sent = 0`, [currentTime, twoHoursLater]
+               AND f.reminder_sent = 0`, [currentTime, futureTime]
         );
 
-        console.log(`Found ${followUps.length} follow-ups due in the next 2 hours`);
+        console.log(`Found ${followUps.length} follow-ups due in the next ${reminderHours} hours`);
 
         // Debug: Show the follow-ups found
         followUps.forEach(followUp => {
@@ -163,7 +202,7 @@ const checkFollowUpReminders = async() => {
         });
 
         for (const followUp of followUps) {
-            const success = await sendFollowUpReminder(followUp, followUp);
+            const success = await sendFollowUpReminder(followUp, followUp, settings);
 
             if (success) {
                 await pool.query(
@@ -180,12 +219,18 @@ const checkFollowUpReminders = async() => {
 // Test function to check what's in the database
 const debugFollowUps = async() => {
     try {
+        // Get settings from database
+        const settings = await getSettings();
+        console.log('Settings:', settings);
+
         const currentTime = getCurrentMySQLDateTime();
-        const twoHoursLater = addHoursToCurrentTime(2);
+        const reminderHours = settings.reminder_time_before || 2;
+        const futureTime = addHoursToCurrentTime(reminderHours);
 
         console.log('=== DEBUG FOLLOW-UPS ===');
         console.log('Current Time (matching DB timezone):', currentTime);
-        console.log('Two hours later:', twoHoursLater);
+        console.log(`Looking ahead ${reminderHours} hours to:`, futureTime);
+        console.log('Notifications enabled:', settings.notifications_enabled ? 'Yes' : 'No');
 
         // Get all follow-ups for debugging
         const [allFollowUps] = await pool.query(
@@ -206,10 +251,10 @@ const debugFollowUps = async() => {
              FROM follow_ups f
              INNER JOIN clients c ON f.client_id = c.id
              WHERE f.next_follow_up_date > ? 
-               AND f.next_follow_up_date <= ?`, [currentTime, twoHoursLater]
+               AND f.next_follow_up_date <= ?`, [currentTime, futureTime]
         );
 
-        console.log('\nFollow-ups in 2-hour window:');
+        console.log(`\nFollow-ups in ${reminderHours}-hour window:`);
         windowFollowUps.forEach(followUp => {
             console.log(`ID: ${followUp.id}, Client: ${followUp.customer_name}, Next: ${followUp.next_follow_up_date}, Reminder Sent: ${followUp.reminder_sent}`);
         });

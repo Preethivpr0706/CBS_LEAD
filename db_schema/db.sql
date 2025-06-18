@@ -93,3 +93,42 @@ INSERT INTO folders (name) VALUES
 
 -- Add reminder_sent column to follow_ups table
 ALTER TABLE cbs_db.follow_ups ADD COLUMN reminder_sent BOOLEAN DEFAULT FALSE;
+
+-- Create company_settings table with authentication fields
+CREATE TABLE company_settings (
+  id INT PRIMARY KEY DEFAULT 1,
+  company_name VARCHAR(255) NOT NULL DEFAULT 'Chetana Business Solutions',
+  company_email VARCHAR(255) DEFAULT 'info@chetana.com',
+  company_phone VARCHAR(20),
+  company_address TEXT,
+  logo_url VARCHAR(255),
+  notification_email VARCHAR(255) DEFAULT 'harishradhakrishnan2001@gmail.com',
+  reminder_time_before INT DEFAULT 2,
+  admin_email VARCHAR(255) DEFAULT 'admin@chetana.com',
+  admin_password VARCHAR(255) DEFAULT 'password',
+  admin_name VARCHAR(255) DEFAULT 'Admin User',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Insert default company settings
+INSERT INTO company_settings (
+  company_name, 
+  company_email, 
+  notification_email,
+  admin_email,
+  admin_password,
+  admin_name
+) VALUES (
+  'Chetana Business Solutions', 
+  'info@chetana.com', 
+  'harishradhakrishnan2001@gmail.com',
+  'admin@chetana.com',
+  'password',
+  'Admin User'
+);
+
+-- Add notifications_enabled field to company_settings table
+ALTER TABLE company_settings 
+ADD COLUMN notifications_enabled BOOLEAN DEFAULT TRUE;
+

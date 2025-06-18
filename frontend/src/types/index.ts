@@ -74,3 +74,17 @@ export interface UserSettings {
   notification_frequency?: 'daily' | 'weekly' | 'none';
   // Add other settings as needed
 }
+
+export interface AppSettings {
+  id: number;
+  company_name: string;
+  company_email: string;
+  company_phone: string;
+  company_address: string;
+  logo_url?: string;
+  notification_email: string;
+  reminder_time_before: number;
+  notifications_enabled: boolean;
+  admin_email: string;
+  admin_name: string;
+}

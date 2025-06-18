@@ -1,7 +1,9 @@
+// context/AuthContext.tsx
 import React, { createContext, useState, useEffect } from 'react';
+import { authApi } from '../services/api';
 
 interface User {
-  id: string;
+  id: string | number;
   name: string;
   email: string;
 }
@@ -11,6 +13,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
 }
 
 export const AuthContext = createContext<AuthContextType>({
@@ -18,6 +21,7 @@ export const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   login: async () => false,
   logout: () => {},
+  changePassword: async () => false,
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -44,20 +48,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // For demo purposes, we're using hardcoded credentials
-      // In a real app, this would be an API call
-      if (email === 'admin@chetana.com' && password === 'password') {
-        const user = {
-          id: '1',
-          name: 'Admin User',
-          email: 'admin@chetana.com',
-        };
-        
-        setUser(user);
-        localStorage.setItem('user', JSON.stringify(user));
-        return true;
-      }
-      return false;
+      const response = await authApi.login(email, password);
+      const { user } = response.data;
+      
+      setUser(user);
+      localStorage.setItem('user', JSON.stringify(user));
+      return true;
     } catch (error) {
       console.error('Login error:', error);
       return false;
@@ -69,8 +65,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('user');
   };
   
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
+    try {
+      await authApi.changePassword(currentPassword, newPassword);
+      return true;
+    } catch (error) {
+      console.error('Change password error:', error);
+      return false;
+    }
+  };
+  
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

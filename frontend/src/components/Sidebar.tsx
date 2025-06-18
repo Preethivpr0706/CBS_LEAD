@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Dialog, Transition } from '@headlessui/react';
 import { X, LayoutDashboard, Users,  Settings, FolderClosed, Table } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import cbsLogo from '../cbs.png'; // Make sure to add your CBS logo to this path
+import { useSettingsStore } from '../store/settingsStore';
+import cbsLogo from '../cbs.png';
 
 interface SidebarProps {
   open: boolean;
@@ -13,6 +14,39 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ open, setOpen }) => {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { settings, fetchSettings } = useSettingsStore();
+  const [logoUrl, setLogoUrl] = useState<string>(cbsLogo);
+  
+  // Function to get the correct logo URL
+  const getLogoUrl = (logoPath: string | undefined | null): string => {
+    if (!logoPath) return cbsLogo;
+    
+    // If it's already a full URL, return it
+    if (logoPath.startsWith('http')) return logoPath;
+    
+    // Remove any leading "/api" if present
+    const cleanPath = logoPath.startsWith('/api') 
+      ? logoPath.substring(4) 
+      : logoPath;
+    
+    // Construct the full URL
+  const apiBaseUrl = import.meta.env.BACKEND_URL || 'http://localhost:3001';
+    return `${apiBaseUrl}${cleanPath}`;
+  };
+  
+  // Fetch settings on component mount to get the logo
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+  
+  // Update logo URL when settings change
+  useEffect(() => {
+    if (settings?.logo_url) {
+      const url = getLogoUrl(settings.logo_url);
+      setLogoUrl(url);
+    }
+  }, [settings]);
+
   
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -56,12 +90,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, setOpen }) => {
               <Dialog.Panel className="relative mr-16 flex w-full max-w-xs flex-1">
                 <div className="flex h-full flex-col overflow-y-auto bg-gradient-to-b from-slate-50 to-white py-6 shadow-2xl border-r border-slate-200/50">
                   <div className="flex items-center justify-between px-6">
-                    <Link to="/" className="flex items-center group">
+                     <Link to="/" className="flex items-center group">
                       <div className="p-2 rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-200">
                         <img 
-                          src={cbsLogo} 
-                          alt="CBS Logo" 
+                          src={logoUrl} 
+                          alt={settings?.company_name || "CBS Logo"} 
                           className="h-8 w-8 object-contain"
+                          onError={(e) => {
+                            console.error("Logo failed to load:", logoUrl);
+                            (e.target as HTMLImageElement).src = cbsLogo;
+                          }}
                         />
                       </div>
                       <span className="ml-3 text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
@@ -135,12 +173,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, setOpen }) => {
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-slate-200/50 bg-gradient-to-b from-slate-50/50 to-white px-6 pb-4 backdrop-blur-sm">
           <div className="flex h-16 shrink-0 items-center">
-            <Link to="/" className="flex items-center group">
+           <Link to="/" className="flex items-center group">
               <div className="p-2 rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-200 group-hover:scale-105">
                 <img 
-                  src={cbsLogo} 
-                  alt="CBS Logo" 
+                  src={logoUrl} 
+                  alt={settings?.company_name || "CBS Logo"} 
                   className="h-8 w-8 object-contain"
+                  onError={(e) => {
+                    console.error("Logo failed to load:", logoUrl);
+                    (e.target as HTMLImageElement).src = cbsLogo;
+                  }}
                 />
               </div>
               <span className="ml-3 text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
