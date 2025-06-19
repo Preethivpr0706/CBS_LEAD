@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ClientForm } from '../components/ClientForm';
 import { useClientsStore } from '../store/clientsStore';
@@ -53,6 +53,54 @@ export const EditClient: React.FC = () => {
     loadData();
   }, [id, client, fetchClients]);
 
+  // ✅ Memoize the initial form data so it doesn't change on every render
+  const initialFormData: ClientFormData = useMemo(() => {
+    if (!client) return {} as ClientFormData;
+    
+    return {
+      customer_name: client.customer_name,
+      phone_number: client.phone_number,
+      business_name: client.business_name,
+      monthly_turnover: client.monthly_turnover?.toString() || '',
+      area: client.area,
+      required_amount: client.required_amount?.toString() || '',
+      old_financier_name: client.old_financier_name || '',
+      old_scheme: client.old_scheme || '',
+      old_finance_amount: client.old_finance_amount?.toString() || '',
+      new_financier_name: client.new_financier_name || '',
+      new_scheme: client.new_scheme || '',
+      bank_support: client.bank_support || false,
+      remarks: client.remarks || '',
+      reference: client.reference || '',
+      commission_percentage: client.commission_percentage?.toString() || ''
+    };
+  }, [client]); // Only recalculate when client changes
+
+  // ✅ Memoize the submit handler to prevent unnecessary re-renders
+  const handleSubmit = useCallback(async (formData: ClientFormData) => {
+    if (!client) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Convert form data back to Client type
+      const updatedData: Partial<Client> = {
+        ...formData,
+        monthly_turnover: formData.monthly_turnover ? parseFloat(formData.monthly_turnover) : 0,
+        required_amount: formData.required_amount ? parseFloat(formData.required_amount) : 0,
+        old_finance_amount: formData.old_finance_amount ? parseFloat(formData.old_finance_amount) : undefined,
+        commission_percentage: formData.commission_percentage ? parseFloat(formData.commission_percentage) : undefined,
+      };
+
+      await updateClient(client.id, updatedData);
+      navigate(`/clients/${client.id}`);
+    } catch (error) {
+      console.error('Failed to update client:', error);
+      // Handle error (show error message)
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [client, updateClient, navigate]);
+
   // Show loading state
   if (loading) {
     return (
@@ -67,6 +115,7 @@ export const EditClient: React.FC = () => {
       </div>
     );
   }
+  
   // Show not found only after loading is complete
   if (!client) {
     return (
@@ -89,48 +138,6 @@ export const EditClient: React.FC = () => {
       </div>
     );
   }
-
-
-  // Convert client data to form data format
-  const initialFormData: ClientFormData = {
-    customer_name: client.customer_name,
-    phone_number: client.phone_number,
-    business_name: client.business_name,
-    monthly_turnover: client.monthly_turnover.toString(),
-    area: client.area,
-    required_amount: client.required_amount.toString(),
-    old_financier_name: client.old_financier_name,
-    old_scheme: client.old_scheme,
-    old_finance_amount: client.old_finance_amount?.toString(),
-    new_financier_name: client.new_financier_name,
-    new_scheme: client.new_scheme,
-    bank_support: client.bank_support,
-    remarks: client.remarks,
-    reference: client.reference,
-    commission_percentage: client.commission_percentage?.toString()
-  };
-  
-  const handleSubmit = async (formData: ClientFormData) => {
-    setIsSubmitting(true);
-    try {
-      // Convert form data back to Client type
-      const updatedData: Partial<Client> = {
-        ...formData,
-        monthly_turnover: parseFloat(formData.monthly_turnover),
-        required_amount: parseFloat(formData.required_amount),
-        old_finance_amount: formData.old_finance_amount ? parseFloat(formData.old_finance_amount) : undefined,
-        commission_percentage: formData.commission_percentage ? parseFloat(formData.commission_percentage) : undefined,
-      };
-
-      await updateClient(client.id, updatedData);
-      navigate(`/clients/${client.id}`);
-    } catch (error) {
-      console.error('Failed to update client:', error);
-      // Handle error (show error message)
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
   
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

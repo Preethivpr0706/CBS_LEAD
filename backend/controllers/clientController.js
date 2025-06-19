@@ -1,6 +1,7 @@
 // controllers/clientController.js
 const pool = require('../config/database');
 const stringSimilarity = require('string-similarity');
+const backupService = require('../services/backupService');
 
 const formatDateForMySQL = (dateString) => {
     if (!dateString) return null;
@@ -206,6 +207,14 @@ const clientController = {
             );
 
             const [newClient] = await pool.query('SELECT * FROM clients WHERE id = ?', [result.insertId]);
+            // Update backup after creating client
+            try {
+                await backupService.updateBackupForClient(result.insertId, 'create');
+                console.log(`Backup updated for new client ID: ${result.insertId}`);
+            } catch (backupError) {
+                console.error('Error updating backup for new client:', backupError);
+                // Continue with the response even if backup fails
+            }
             res.status(201).json(newClient[0]);
         } catch (error) {
             console.error('Error creating client:', error);
@@ -236,6 +245,14 @@ const clientController = {
             }
 
             const [updatedClient] = await pool.query('SELECT * FROM clients WHERE id = ?', [id]);
+            // Update backup after updating client
+            try {
+                await backupService.updateBackupForClient(parseInt(id), 'update');
+                console.log(`Backup updated for client ID: ${id}`);
+            } catch (backupError) {
+                console.error('Error updating backup for client:', backupError);
+                // Continue with the response even if backup fails
+            }
             res.json(updatedClient[0]);
         } catch (error) {
             console.error('Error updating client:', error);
@@ -253,10 +270,18 @@ const clientController = {
                 'UPDATE clients SET status = ?, status_updated_at = CURRENT_TIMESTAMP WHERE id = ?', [status, id]
             );
 
+
             if (result.affectedRows === 0) {
                 return res.status(404).json({ error: 'Client not found' });
             }
-
+            // Update backup after updating client status
+            try {
+                await backupService.updateBackupForClient(parseInt(id), 'update');
+                console.log(`Backup updated for client ID: ${id} status change`);
+            } catch (backupError) {
+                console.error('Error updating backup for client status change:', backupError);
+                // Continue with the response even if backup fails
+            }
             res.json({ message: 'Status updated successfully' });
         } catch (error) {
             console.error('Error updating client status:', error);
@@ -270,6 +295,15 @@ const clientController = {
             const { id } = req.params;
 
             const [result] = await pool.query('DELETE FROM clients WHERE id = ?', [id]);
+            // Update backup before deleting client
+            try {
+                await backupService.updateBackupForClient(parseInt(id), 'delete');
+                console.log(`Backup updated for deleted client ID: ${id}`);
+            } catch (backupError) {
+                console.error('Error updating backup for client deletion:', backupError);
+                // Continue with deletion even if backup fails
+            }
+
 
             if (result.affectedRows === 0) {
                 return res.status(404).json({ error: 'Client not found' });

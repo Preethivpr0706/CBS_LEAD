@@ -1,5 +1,6 @@
 // controllers/followUpController.js
 const pool = require('../config/database');
+const backupService = require('../services/backupService');
 
 const formatDateTimeForMySQL = (dateTimeString) => {
     if (!dateTimeString) return null;
@@ -58,7 +59,14 @@ const followUpController = {
                 const [newFollowUp] = await connection.query(
                     'SELECT * FROM follow_ups WHERE id = ?', [result.insertId]
                 );
-
+                // Update backup after creating follow-up
+                try {
+                    await backupService.updateBackupForFollowUp(result.insertId, parseInt(clientId), 'create');
+                    console.log(`Backup updated for new follow-up ID: ${result.insertId}`);
+                } catch (backupError) {
+                    console.error('Error updating backup for new follow-up:', backupError);
+                    // Continue with the response even if backup fails
+                }
                 connection.release();
                 res.status(201).json(newFollowUp[0]);
             } catch (err) {
@@ -69,6 +77,121 @@ const followUpController = {
         } catch (error) {
             console.error('Error creating follow-up:', error);
             res.status(500).json({ error: 'Failed to create follow-up' });
+        }
+    },
+    // Update follow-up
+    updateFollowUp: async(req, res) => {
+        try {
+            const { id } = req.params;
+            const { type, date, notes, next_follow_up_date } = req.body;
+
+            // Get client ID for backup
+            const [followUpData] = await pool.query('SELECT client_id FROM follow_ups WHERE id = ?', [id]);
+            if (followUpData.length === 0) {
+                return res.status(404).json({ error: 'Follow-up not found' });
+            }
+            const clientId = followUpData[0].client_id;
+
+            const [result] = await pool.query(
+                `UPDATE follow_ups 
+                SET type = ?, date = ?, notes = ?, next_follow_up_date = ?
+                WHERE id = ?`, [type, date, notes, next_follow_up_date, id]
+            );
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: 'Follow-up not found' });
+            }
+
+            // Update client's next follow-up date if provided
+            if (next_follow_up_date) {
+                await pool.query(
+                    'UPDATE clients SET next_follow_up = ? WHERE id = ?', [next_follow_up_date, clientId]
+                );
+
+                // Update backup for client as well
+                try {
+                    await backupService.updateBackupForClient(clientId, 'update');
+                    console.log(`Backup updated for client ID: ${clientId} (follow-up date update)`);
+                } catch (backupError) {
+                    console.error('Error updating backup for client follow-up date:', backupError);
+                }
+            }
+
+            const [updatedFollowUp] = await pool.query('SELECT * FROM follow_ups WHERE id = ?', [id]);
+
+            // Update backup after updating follow-up
+            try {
+                await backupService.updateBackupForFollowUp(parseInt(id), clientId, 'update');
+                console.log(`Backup updated for follow-up ID: ${id}`);
+            } catch (backupError) {
+                console.error('Error updating backup for follow-up:', backupError);
+                // Continue with the response even if backup fails
+            }
+
+            res.json(updatedFollowUp[0]);
+        } catch (error) {
+            console.error('Error updating follow-up:', error);
+            res.status(500).json({ error: 'Failed to update follow-up' });
+        }
+    },
+
+    // Delete follow-up
+    deleteFollowUp: async(req, res) => {
+        try {
+            const { id } = req.params;
+
+            // Get client ID for backup
+            const [followUpData] = await pool.query('SELECT client_id FROM follow_ups WHERE id = ?', [id]);
+            if (followUpData.length === 0) {
+                return res.status(404).json({ error: 'Follow-up not found' });
+            }
+            const clientId = followUpData[0].client_id;
+
+            // Update backup before deleting follow-up
+            try {
+                await backupService.updateBackupForFollowUp(parseInt(id), clientId, 'delete');
+                console.log(`Backup updated for deleted follow-up ID: ${id}`);
+            } catch (backupError) {
+                console.error('Error updating backup for follow-up deletion:', backupError);
+                // Continue with deletion even if backup fails
+            }
+
+            const [result] = await pool.query('DELETE FROM follow_ups WHERE id = ?', [id]);
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: 'Follow-up not found' });
+            }
+
+            // Update client's next follow-up date if this was the latest follow-up
+            const [latestFollowUp] = await pool.query(
+                `SELECT * FROM follow_ups 
+                WHERE client_id = ? 
+                ORDER BY next_follow_up_date DESC 
+                LIMIT 1`, [clientId]
+            );
+
+            if (latestFollowUp.length > 0) {
+                await pool.query(
+                    'UPDATE clients SET next_follow_up = ? WHERE id = ?', [latestFollowUp[0].next_follow_up_date, clientId]
+                );
+            } else {
+                await pool.query(
+                    'UPDATE clients SET next_follow_up = NULL WHERE id = ?', [clientId]
+                );
+            }
+
+            // Update backup for client as well
+            try {
+                await backupService.updateBackupForClient(clientId, 'update');
+                console.log(`Backup updated for client ID: ${clientId} (follow-up deletion)`);
+            } catch (backupError) {
+                console.error('Error updating backup for client after follow-up deletion:', backupError);
+            }
+
+            res.json({ message: 'Follow-up deleted successfully' });
+        } catch (error) {
+            console.error('Error deleting follow-up:', error);
+            res.status(500).json({ error: 'Failed to delete follow-up' });
         }
     }
 };

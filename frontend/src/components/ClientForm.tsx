@@ -11,6 +11,79 @@ interface ClientFormProps {
   isLoading: boolean;
 }
 
+// Move FormSection component outside of ClientForm
+interface FormSectionProps {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  children: React.ReactNode;
+}
+
+const FormSection: React.FC<FormSectionProps> = ({ icon: Icon, title, children }) => (
+  <div className="space-y-6">
+    <div className="flex items-center space-x-3 pb-4 border-b border-slate-200">
+      <div className="flex-shrink-0">
+        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
+          <Icon className="h-4 w-4 text-blue-600" />
+        </div>
+      </div>
+      <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
+    </div>
+    {children}
+  </div>
+);
+
+// Move InputField component outside of ClientForm
+interface InputFieldProps {
+  label: string;
+  name: string;
+  type?: string;
+  required?: boolean;
+  placeholder?: string;
+  step?: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  errors: Record<string, string>;
+  disabled?: boolean;
+}
+
+const InputField: React.FC<InputFieldProps> = ({ 
+  label, 
+  name, 
+  type = 'text', 
+  required = false, 
+  value,
+  onChange,
+  errors,
+  disabled = false,
+  ...props 
+}) => (
+  <div>
+    <label htmlFor={name} className="block text-sm font-semibold text-slate-700 mb-2">
+      {label}{required && <span className="text-red-500 ml-1">*</span>}
+    </label>
+    <input
+      type={type}
+      name={name}
+      id={name}
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      className={`w-full px-4 py-3 border rounded-xl shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
+        errors[name] 
+          ? 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-500/20' 
+          : 'border-slate-300 bg-white hover:border-slate-400 focus:border-blue-400'
+      }`}
+      {...props}
+    />
+    {errors[name] && (
+      <p className="mt-2 text-sm text-red-600 flex items-center">
+        <AlertCircle className="h-4 w-4 mr-1" />
+        {errors[name]}
+      </p>
+    )}
+  </div>
+);
+
 export const ClientForm: React.FC<ClientFormProps> = ({ initialData = {}, onSubmit, isLoading }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -39,39 +112,39 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData = {}, onSubm
   
   // Check for existing client when phone number changes
   useEffect(() => {
-  const checkExistingClient = async () => {
-    // Don't check for existing clients if:
-    // 1. Phone number is less than 10 digits
-    // 2. We're in edit mode (initialData has an id)
-    // 3. Phone number matches the current client's phone (in edit mode)
-    if (
-      debouncedPhone.length < 10 || 
-      initialData.id || 
-      (initialData.phone_number && debouncedPhone === initialData.phone_number)
-    ) {
-      setExistingClient(null);
-      return;
-    }
-
-    try {
-      setIsCheckingPhone(true);
-      const response = await clientsApi.checkDuplicate({ phone_number: debouncedPhone });
-
-      if (response.data.isDuplicate) {
-        setExistingClient(response.data.clients[0]);
-      } else {
+    const checkExistingClient = async () => {
+      // Don't check for existing clients if:
+      // 1. Phone number is less than 10 digits
+      // 2. We're in edit mode (initialData has an id)
+      // 3. Phone number matches the current client's phone (in edit mode)
+      if (
+        debouncedPhone.length < 10 || 
+        initialData.id || 
+        (initialData.phone_number && debouncedPhone === initialData.phone_number)
+      ) {
         setExistingClient(null);
+        return;
       }
-    } catch (error) {
-      console.error('Error checking for existing client:', error);
-      setExistingClient(null);
-    } finally {
-      setIsCheckingPhone(false);
-    }
-  };
 
-  checkExistingClient();
-}, [debouncedPhone, initialData.id, initialData.phone_number]);
+      try {
+        setIsCheckingPhone(true);
+        const response = await clientsApi.checkDuplicate({ phone_number: debouncedPhone });
+
+        if (response.data.isDuplicate) {
+          setExistingClient(response.data.clients[0]);
+        } else {
+          setExistingClient(null);
+        }
+      } catch (error) {
+        console.error('Error checking for existing client:', error);
+        setExistingClient(null);
+      } finally {
+        setIsCheckingPhone(false);
+      }
+    };
+
+    checkExistingClient();
+  }, [debouncedPhone, initialData.id, initialData.phone_number]);
 
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -169,62 +242,6 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData = {}, onSubm
     }
   };
   
-  interface FormSectionProps {
-    icon: React.ComponentType<{ className?: string }>;
-    title: string;
-    children: React.ReactNode;
-  }
-  
-  const FormSection: React.FC<FormSectionProps> = ({ icon: Icon, title, children }) => (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-3 pb-4 border-b border-slate-200">
-        <div className="flex-shrink-0">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-            <Icon className="h-4 w-4 text-blue-600" />
-          </div>
-        </div>
-        <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
-      </div>
-      {children}
-    </div>
-  );
-  
-  interface InputFieldProps {
-    label: string;
-    name: string;
-    type?: string;
-    required?: boolean;
-    placeholder?: string;
-    step?: string;
-  }
-  
-  const InputField: React.FC<InputFieldProps> = ({ label, name, type = 'text', required = false, ...props }) => (
-    <div>
-      <label htmlFor={name} className="block text-sm font-semibold text-slate-700 mb-2">
-        {label}{required && <span className="text-red-500 ml-1">*</span>}
-      </label>
-      <input
-        type={type}
-        name={name}
-        id={name}
-        value={formData[name]}
-        onChange={handleChange}
-        className={`w-full px-4 py-3 border rounded-xl shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
-          errors[name] 
-            ? 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-500/20' 
-            : 'border-slate-300 bg-white hover:border-slate-400 focus:border-blue-400'
-        }`}
-        {...props}
-      />
-      {errors[name] && (
-        <p className="mt-2 text-sm text-red-600 flex items-center">
-          <AlertCircle className="h-4 w-4 mr-1" />
-          {errors[name]}
-        </p>
-      )}
-    </div>
-  );
-  
   return (
     <form onSubmit={handleSubmit} className="p-8 space-y-8">
       {/* Existing Client Alert */}
@@ -280,6 +297,9 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData = {}, onSubm
             name="customer_name"
             required
             placeholder="Enter full name"
+            value={formData.customer_name}
+            onChange={handleChange}
+            errors={errors}
           />
           
           <div>
@@ -330,6 +350,9 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData = {}, onSubm
             name="business_name"
             required
             placeholder="Enter business name"
+            value={formData.business_name}
+            onChange={handleChange}
+            errors={errors}
           />
           
           <InputField
@@ -337,6 +360,9 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData = {}, onSubm
             name="monthly_turnover"
             type="number"
             placeholder="Enter amount in rupees"
+            value={formData.monthly_turnover}
+            onChange={handleChange}
+            errors={errors}
           />
           
           <InputField
@@ -344,6 +370,9 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData = {}, onSubm
             name="area"
             required
             placeholder="Enter business location"
+            value={formData.area}
+            onChange={handleChange}
+            errors={errors}
           />
           
           <InputField
@@ -351,6 +380,9 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData = {}, onSubm
             name="required_amount"
             type="number"
             placeholder="Enter required loan amount"
+            value={formData.required_amount}
+            onChange={handleChange}
+            errors={errors}
           />
         </div>
       </FormSection>
@@ -362,12 +394,18 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData = {}, onSubm
             label="Old Financier Name"
             name="old_financier_name"
             placeholder="Previous lender name"
+            value={formData.old_financier_name}
+            onChange={handleChange}
+            errors={errors}
           />
           
           <InputField
             label="Old Scheme"
             name="old_scheme"
             placeholder="Previous loan scheme"
+            value={formData.old_scheme}
+            onChange={handleChange}
+            errors={errors}
           />
           
           <InputField
@@ -375,18 +413,27 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData = {}, onSubm
             name="old_finance_amount"
             type="number"
             placeholder="Previous loan amount"
+            value={formData.old_finance_amount}
+            onChange={handleChange}
+            errors={errors}
           />
           
           <InputField
             label="New Financier Name"
             name="new_financier_name"
             placeholder="New lender name"
+            value={formData.new_financier_name}
+            onChange={handleChange}
+            errors={errors}
           />
           
           <InputField
             label="New Scheme"
             name="new_scheme"
             placeholder="New loan scheme"
+            value={formData.new_scheme}
+            onChange={handleChange}
+            errors={errors}
           />
           
           <div className="flex items-end">
@@ -428,6 +475,9 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData = {}, onSubm
               label="Reference"
               name="reference"
               placeholder="Reference person or source"
+              value={formData.reference}
+              onChange={handleChange}
+              errors={errors}
             />
             
             <InputField
@@ -436,6 +486,9 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData = {}, onSubm
               type="number"
               step="0.01"
               placeholder="Commission rate"
+              value={formData.commission_percentage}
+              onChange={handleChange}
+              errors={errors}
             />
           </div>
         </div>
