@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Dialog, Transition } from '@headlessui/react';
-import { X, LayoutDashboard, Users,  Settings, FolderClosed, Table } from 'lucide-react';
+import { X, LayoutDashboard, Users,  Settings, FolderClosed, Table, BarChart } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useSettingsStore } from '../store/settingsStore';
 import cbsLogo from '../cbs.png';
@@ -53,7 +53,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, setOpen }) => {
     { name: 'Clients', href: '/clients', icon: Users },
     { name: 'Documents', href: '/documents', icon: FolderClosed },
     { name: 'Settings', href: '/settings', icon: Settings },
-    { name: 'Client Table', href: '/clients/table', icon: Table }
+    { name: 'Client Table', href: '/clients/table', icon: Table },
+     { name: 'Analytics', href: '/analytics', icon: BarChart }
   ];
   
   const isActive = (path: string) => {

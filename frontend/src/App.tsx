@@ -13,6 +13,7 @@ import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Toaster } from 'react-hot-toast';
 import { ClientsTableView } from './pages/ClientsTableView';
+import { Analytics } from './pages/Analytics';
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
               <Route path="/clients/:id/edit" element={<EditClient />} />
               <Route path="/documents" element={<Documents />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="analytics" element={<Analytics />} /> 
             </Route>
           </Route>
           
